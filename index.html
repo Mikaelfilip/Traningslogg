@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Träningslogg</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Min träning</p>
+        <h1>Träningslogg</h1>
+      </div>
+      <p>Bygg schema, logga dagens pass och följ din progression.</p>
+    </header>
+
+    <nav class="tabs" aria-label="Huvudmeny">
+      <button class="tab-button active" type="button" data-view="schedule">Schema</button>
+      <button class="tab-button" type="button" data-view="log">Logga pass</button>
+      <button class="tab-button" type="button" data-view="progress">Progression</button>
+    </nav>
+
+    <main>
+      <section class="view active" id="schedule-view" aria-labelledby="schedule-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Del 1</p>
+            <h2 id="schedule-title">Schema</h2>
+          </div>
+          <p>Skapa pass och lägg in övningar separerade med kommatecken.</p>
+        </div>
+
+        <form id="workout-form" class="form-panel">
+          <label>
+            Namn på pass
+            <input id="workout-name" type="text" placeholder="Till exempel Pass A" required>
+          </label>
+          <label>
+            Övningar
+            <textarea id="workout-exercises" rows="4" placeholder="Bänkpress, Knäböj, Rodd" required></textarea>
+          </label>
+          <button type="submit">Spara pass</button>
+        </form>
+
+        <div id="workout-list" class="item-list" aria-live="polite"></div>
+      </section>
+
+      <section class="view" id="log-view" aria-labelledby="log-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Del 2</p>
+            <h2 id="log-title">Logga pass</h2>
+          </div>
+          <p>Välj ett pass, fyll i vikt, reps och sets, och spara med dagens datum.</p>
+        </div>
+
+        <label class="select-label">
+          Välj pass
+          <select id="workout-select"></select>
+        </label>
+
+        <p id="save-status" class="status-message" role="status" aria-live="polite"></p>
+        <form id="log-form" class="exercise-list"></form>
+      </section>
+
+      <section class="view" id="progress-view" aria-labelledby="progress-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Del 3</p>
+            <h2 id="progress-title">Progression</h2>
+          </div>
+          <p>Se tidigare resultat för varje övning.</p>
+        </div>
+
+        <div class="select-label">
+          <p class="field-title">Välj övningar</p>
+          <div id="exercise-options" class="check-list"></div>
+        </div>
+
+        <div id="progress-summary" class="summary-list" aria-live="polite"></div>
+        <div id="progress-chart" class="chart-panel" aria-live="polite"></div>
+        <div id="progress-list" class="item-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
