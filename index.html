@@ -12,7 +12,7 @@
         <p class="eyebrow">Min träning</p>
         <h1>Träningslogg</h1>
       </div>
-      <p>Bygg schema, logga dagens pass och följ din progression.</p>
+      <p>Bygg schema, logga pass och följ din progression.</p>
     </header>
 
     <nav class="tabs" aria-label="Huvudmeny">
@@ -52,12 +52,17 @@
             <p class="eyebrow">Del 2</p>
             <h2 id="log-title">Logga pass</h2>
           </div>
-          <p>Välj ett pass, fyll i vikt, reps och sets, och spara med dagens datum.</p>
+          <p>Bocka i det du har gjort. Ändra bara vikt, reps eller sets när något skiljer sig.</p>
         </div>
 
         <label class="select-label">
           Välj pass
           <select id="workout-select"></select>
+        </label>
+
+        <label class="select-label">
+          Datum
+          <input id="log-date" type="date">
         </label>
 
         <p id="save-status" class="status-message" role="status" aria-live="polite"></p>
@@ -70,7 +75,7 @@
             <p class="eyebrow">Del 3</p>
             <h2 id="progress-title">Progression</h2>
           </div>
-          <p>Se tidigare resultat för varje övning.</p>
+          <p>Se tidigare resultat på en enkel skala från 0 till 100.</p>
         </div>
 
         <div class="select-label">

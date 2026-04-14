@@ -1,5 +1,5 @@
 const STORAGE_KEY = "trainingLogV1";
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 let data = loadData();
 let selectedExerciseName = "";
@@ -13,6 +13,7 @@ const workoutNameInput = document.querySelector("#workout-name");
 const workoutExercisesInput = document.querySelector("#workout-exercises");
 const workoutList = document.querySelector("#workout-list");
 const workoutSelect = document.querySelector("#workout-select");
+const logDateInput = document.querySelector("#log-date");
 const saveStatus = document.querySelector("#save-status");
 const logForm = document.querySelector("#log-form");
 const exerciseOptions = document.querySelector("#exercise-options");
@@ -47,12 +48,13 @@ function createDefaultData() {
     workouts,
     logs: [],
     uiState: {
-      selectedWorkoutId: workouts[0]?.id || ""
+      selectedWorkoutId: workouts[0]?.id || "",
+      selectedDate: getToday()
     }
   };
 }
 
-// Hämtar sparad data och migrerar automatiskt till version 2.
+// Hämtar sparad data och migrerar automatiskt till aktuell version.
 function loadData() {
   const fallbackData = createDefaultData();
   const savedData = localStorage.getItem(STORAGE_KEY);
@@ -91,13 +93,15 @@ function normalizeData(rawData, fallbackData) {
   const selectedWorkoutId = workouts.some((workout) => workout.id === selectedFromStorage)
     ? selectedFromStorage
     : (workouts[0]?.id || "");
+  const selectedDate = normalizeDate(rawData.uiState?.selectedDate);
 
   return {
     version: CURRENT_VERSION,
     workouts,
     logs,
     uiState: {
-      selectedWorkoutId
+      selectedWorkoutId,
+      selectedDate
     }
   };
 }
@@ -240,9 +244,15 @@ function showSaveStatus(message) {
 function render() {
   renderWorkouts();
   renderWorkoutSelect();
+  renderLogDate();
   renderLogForm();
   renderExerciseOptions();
   renderProgress();
+}
+
+function renderLogDate() {
+  data.uiState.selectedDate = normalizeDate(data.uiState.selectedDate);
+  logDateInput.value = data.uiState.selectedDate;
 }
 
 function renderWorkouts() {
@@ -383,13 +393,23 @@ function renderLogForm() {
     const card = document.createElement("section");
     card.className = "exercise-card";
 
-    const title = document.createElement("h3");
-    title.textContent = exercise;
+    const latest = getLatestExerciseResult(exercise);
+
+    const doneLabel = document.createElement("label");
+    doneLabel.className = "done-option";
+
+    const doneInput = document.createElement("input");
+    doneInput.type = "checkbox";
+    doneInput.name = `${exercise}-done`;
+    doneInput.checked = exercise.toLocaleLowerCase("sv") === selectedKey;
+
+    const doneText = document.createElement("span");
+    doneText.textContent = `${exercise} gjord`;
+
+    doneLabel.append(doneInput, doneText);
 
     const fields = document.createElement("div");
     fields.className = "exercise-inputs";
-
-    const latest = getLatestExerciseResult(exercise);
 
     const weightLabel = document.createElement("label");
     weightLabel.textContent = "Vikt";
@@ -435,13 +455,13 @@ function renderLogForm() {
     repsLabel.append(repsInput);
     setsLabel.append(setsInput);
     fields.append(weightLabel, repsLabel, setsLabel);
-    card.append(title, fields);
+    card.append(doneLabel, fields);
     logForm.append(card);
   });
 
   const saveButton = document.createElement("button");
   saveButton.type = "submit";
-  saveButton.textContent = `Spara pass för ${getToday()}`;
+  saveButton.textContent = "Spara ibockade övningar";
   logForm.append(saveButton);
 }
 
@@ -659,13 +679,11 @@ function renderProgressChart(results, selectedExercises) {
     return;
   }
 
-  const dates = [...new Set(chartResults.map((result) => result.date))].sort();
-  const weights = chartResults
-    .map((result) => parseWeightNumber(result.weight))
-    .filter((value) => value !== null);
-  const minWeight = Math.min(...weights);
-  const maxWeight = Math.max(...weights);
-  const weightRange = maxWeight - minWeight || 1;
+  const scaledResults = chartResults.map((result) => ({
+    ...result,
+    progress: getScaledProgress(result, chartResults)
+  }));
+  const dates = [...new Set(scaledResults.map((result) => result.date))].sort();
   const stepX = dates.length > 1 ? (width - padding * 2) / (dates.length - 1) : 0;
 
   const svg = createSvgElement("svg");
@@ -681,7 +699,7 @@ function renderProgressChart(results, selectedExercises) {
   const yLabel = createSvgElement("text");
   yLabel.setAttribute("x", "10");
   yLabel.setAttribute("y", "18");
-  yLabel.textContent = "kg";
+  yLabel.textContent = "100";
   svg.append(yLabel);
 
   const xLabel = createSvgElement("text");
@@ -714,21 +732,21 @@ function renderProgressChart(results, selectedExercises) {
     svg.append(firstDateLabel, lastDateLabel);
   }
 
-  const minWeightLabel = createSvgElement("text");
-  minWeightLabel.setAttribute("x", "8");
-  minWeightLabel.setAttribute("y", String(height - padding));
-  minWeightLabel.textContent = `${minWeight} kg`;
+  const zeroLabel = createSvgElement("text");
+  zeroLabel.setAttribute("x", "8");
+  zeroLabel.setAttribute("y", String(height - padding));
+  zeroLabel.textContent = "0";
 
-  const maxWeightLabel = createSvgElement("text");
-  maxWeightLabel.setAttribute("x", "8");
-  maxWeightLabel.setAttribute("y", String(padding + 4));
-  maxWeightLabel.textContent = `${maxWeight} kg`;
+  const middleLabel = createSvgElement("text");
+  middleLabel.setAttribute("x", "8");
+  middleLabel.setAttribute("y", String(height / 2 + 4));
+  middleLabel.textContent = "50";
 
-  svg.append(minWeightLabel, maxWeightLabel);
+  svg.append(zeroLabel, middleLabel);
 
   selectedExercises.forEach((exercise, index) => {
     const exerciseKey = exercise.toLocaleLowerCase("sv");
-    const exerciseResults = chartResults
+    const exerciseResults = scaledResults
       .filter((result) => result.exercise.toLocaleLowerCase("sv") === exerciseKey)
       .sort((a, b) => {
         const dateCompare = a.date.localeCompare(b.date);
@@ -753,14 +771,13 @@ function renderProgressChart(results, selectedExercises) {
     const points = exerciseResults
       .map((result) => {
         const dateIndex = dates.indexOf(result.date);
-        const weight = parseWeightNumber(result.weight);
 
-        if (weight === null || dateIndex < 0) {
+        if (dateIndex < 0) {
           return null;
         }
 
         const x = dates.length === 1 ? width / 2 : padding + dateIndex * stepX;
-        const y = height - padding - ((weight - minWeight) / weightRange) * (height - padding * 2);
+        const y = height - padding - (result.progress / 100) * (height - padding * 2);
         return { x, y };
       })
       .filter(Boolean);
@@ -801,6 +818,29 @@ function renderProgressChart(results, selectedExercises) {
   });
 
   progressChart.append(svg, legend);
+}
+
+function getScaledProgress(result, allResults) {
+  const exerciseKey = result.exercise.toLocaleLowerCase("sv");
+  const weight = parseWeightNumber(result.weight);
+
+  if (weight === null) {
+    return 0;
+  }
+
+  const exerciseWeights = allResults
+    .filter((item) => item.exercise.toLocaleLowerCase("sv") === exerciseKey)
+    .map((item) => parseWeightNumber(item.weight))
+    .filter((value) => value !== null);
+
+  const minWeight = Math.min(...exerciseWeights);
+  const maxWeight = Math.max(...exerciseWeights);
+
+  if (minWeight === maxWeight) {
+    return 100;
+  }
+
+  return ((weight - minWeight) / (maxWeight - minWeight)) * 100;
 }
 
 function formatDateLabel(dateText) {
@@ -917,7 +957,7 @@ function focusSelectedExerciseInput() {
   }
 
   selectedCard.scrollIntoView({ behavior: "smooth", block: "center" });
-  selectedCard.querySelector("input")?.focus();
+  selectedCard.querySelector('input[type="number"]')?.focus();
 }
 
 function saveWorkoutLog(event) {
@@ -929,43 +969,45 @@ function saveWorkoutLog(event) {
     return;
   }
 
-  // Bara övningar där vikt, reps och sets är ifyllda sparas i loggen.
+  const selectedDate = normalizeDate(logDateInput.value);
+
+  // Bara ibockade övningar där vikt, reps och sets är ifyllda sparas i loggen.
   const results = workout.exercises
     .map((exercise) => {
+      const done = Boolean(logForm.elements[`${exercise}-done`]?.checked);
       const weight = normalizeTextValue(logForm.elements[`${exercise}-weight`]?.value);
       const reps = normalizeTextValue(logForm.elements[`${exercise}-reps`]?.value);
       const sets = normalizeTextValue(logForm.elements[`${exercise}-sets`]?.value);
 
       return {
+        done,
         exercise,
         weight,
         reps,
         sets
       };
     })
-    .filter((result) => result.weight && result.reps && result.sets);
+    .filter((result) => result.done && result.weight && result.reps && result.sets)
+    .map(({ done, ...result }) => result);
 
   if (results.length === 0) {
     return;
   }
 
-  if (!selectedExerciseName || !hasExerciseIgnoreCase(workout, selectedExerciseName)) {
-    selectedExerciseName = results[0].exercise;
-  }
-
   data.logs.push({
-    date: getToday(),
+    date: selectedDate,
     workoutId: workout.id,
     workoutName: workout.name,
     results
   });
 
-  selectedProgressExercises.add(selectedExerciseName);
+  data.uiState.selectedDate = selectedDate;
+  selectedExerciseName = "";
+  results.forEach((result) => selectedProgressExercises.add(result.exercise));
   saveData();
   render();
   showView("log");
   showSaveStatus("Sparat");
-  focusSelectedExerciseInput();
 }
 
 function handleWorkoutSelectChange() {
@@ -975,12 +1017,19 @@ function handleWorkoutSelectChange() {
   renderLogForm();
 }
 
+function handleLogDateChange() {
+  data.uiState.selectedDate = normalizeDate(logDateInput.value);
+  logDateInput.value = data.uiState.selectedDate;
+  saveData();
+}
+
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => showView(button.dataset.view));
 });
 
 workoutForm.addEventListener("submit", addWorkout);
 workoutSelect.addEventListener("change", handleWorkoutSelectChange);
+logDateInput.addEventListener("change", handleLogDateChange);
 logForm.addEventListener("submit", saveWorkoutLog);
 
 render();

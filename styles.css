@@ -176,6 +176,20 @@ label textarea {
   font-weight: 400;
 }
 
+.done-option {
+  align-items: center;
+  color: var(--text);
+  display: flex;
+  flex-direction: row;
+  font-size: 1.05rem;
+  gap: 0.6rem;
+}
+
+.done-option input {
+  min-height: 22px;
+  width: 22px;
+}
+
 .select-label {
   margin-bottom: 1rem;
 }
